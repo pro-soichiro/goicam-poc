@@ -70,6 +70,25 @@
       flex-wrap: wrap;
       gap: 12px;
       font-size: 0.95rem;
+      align-items: center;
+    }
+    .reset-button {
+      margin-left: auto;
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      border: 1px solid #cbd5f5;
+      border-radius: 999px;
+      background: #e0e7ff;
+      color: #1d4ed8;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .reset-button:hover {
+      background: #c7d2fe;
+    }
+    .reset-button:focus-visible {
+      outline: 3px solid #4338ca;
+      outline-offset: 2px;
     }
     .quiz-card {
       background: #ffffff;
@@ -209,6 +228,10 @@
     .result-item.wrong {
       border-left: 4px solid #c81e1e;
     }
+    .result-item.lucky {
+      border-left-color: #f59e0b;
+      background: #fff7ed;
+    }
     .result-item strong {
       display: block;
       font-size: 1rem;
@@ -226,6 +249,49 @@
       color: #52606d;
       margin-top: 4px;
       display: block;
+    }
+    .term.lucky {
+      color: #d97706;
+    }
+    .term.lucky::before {
+      content: "★ ";
+      color: #f59e0b;
+    }
+    .choice-hit {
+      animation: hitPulse 0.4s ease-out;
+    }
+    .choice-miss {
+      animation: missShake 0.4s ease-out;
+    }
+    .result-note {
+      margin-top: 16px;
+      font-size: 0.95rem;
+      color: #334155;
+    }
+    @keyframes hitPulse {
+      0% {
+        transform: scale(1);
+      }
+      40% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+    @keyframes missShake {
+      0% {
+        transform: translateX(0);
+      }
+      25% {
+        transform: translateX(-4px);
+      }
+      50% {
+        transform: translateX(4px);
+      }
+      100% {
+        transform: translateX(0);
+      }
     }
     @keyframes fadeUp {
       from {
@@ -272,6 +338,9 @@
       <span id="stat-today">今日の解答数: 0</span>
       <span id="stat-correct">累計正答: 0</span>
       <span id="stat-streak">連続日数: 0</span>
+      <span id="stat-score">スコア: 0</span>
+      <span id="stat-combo">コンボ: x1</span>
+      <button type="button" id="reset-button" class="reset-button" aria-label="学習記録をリセット">記録をリセット</button>
     </div>
   </header>
   <main>
@@ -295,6 +364,7 @@
       <h2>ゴイキャンお疲れさまでした！</h2>
       <p id="result-summary" class="result-summary"></p>
       <div id="result-list" class="result-list"></div>
+      <p id="result-note" class="result-note"></p>
       <button type="button" id="restart-button" class="next-button">もう一度挑戦する</button>
     </section>
   </main>
@@ -307,12 +377,17 @@
       const storageKey = "goicamState";
       const legacyKeys = ["jpVocabQuizState"];
       const intervals = [0, 1, 2, 4, 7, 14, 30];
+      const AUTO_NEXT_DELAY = 2000;
+      const DAILY_CAP = 5;
+      const MAX_COMBO = 10;
+      const LUCKY_BONUS = 500;
       const quizData = [
         {
           id: "q1",
           term: "是非を問う",
           explanation: "「是か非か＝正しいか正しくないかを判断する意。」",
           source_url: "https://www.sankei.com/article/20250927-OAJ4PBIVM5IUREXXMM3W24IXV4/",
+          example: "委員会で計画の是非を問う議論が白熱した。",
           options: [
             { text: "物事の正しいか正しくないかを判断する", correct: true },
             { text: "絶対にやり遂げようと強く求める", correct: false },
@@ -325,6 +400,7 @@
           term: "監督",
           explanation: "指導・取り締まりの立場から見守ること。",
           source_url: "https://www.sankei.com/article/20250927-OAJ4PBIVM5IUREXXMM3W24IXV4/",
+          example: "現場には経験豊富な監督がつき、作業を見守っている。",
           options: [
             { text: "指導・取り締まりをして見守ること", correct: true },
             { text: "実際に現場で作業すること", correct: false },
@@ -336,7 +412,8 @@
           id: "q3",
           term: "ステルスマーケティング",
           explanation: "広告表示をせず宣伝する手法。略称「ステマ」。",
-          source_url: "https://www.nikkei.com/article/DGXZQOUA14ASN0U5A011C2000000/",
+          source_url: "https://news.yahoo.co.jp/articles/7ca0694a3c8c915b43fbf183d68eb73835895499",
+          example: "SNSで話題の商品が実はステルスマーケティングだったと批判された。",
           options: [
             { text: "広告と気づかれない形で商品を宣伝すること", correct: true },
             { text: "新しい販売戦略を開発すること", correct: false },
@@ -348,7 +425,8 @@
           id: "q4",
           term: "バツが悪い",
           explanation: "その場に居づらい感じの「気まずさ」。",
-          source_url: "",
+          source_url: "https://news.yahoo.co.jp/articles/7ca0694a3c8c915b43fbf183d68eb73835895499",
+          example: "遅刻して会議室に入った瞬間、空気が重くてバツが悪かった。",
           options: [
             { text: "気まずく、居心地が悪い", correct: true },
             { text: "体調が悪く、調子が出ない", correct: false },
@@ -360,7 +438,8 @@
           id: "q5",
           term: "揶揄する",
           explanation: "からかい・なぶりを含む言い方。",
-          source_url: "https://newsdig.tbs.co.jp/articles/-/2221356?display=1",
+          source_url: "https://news.yahoo.co.jp/articles/7ca0694a3c8c915b43fbf183d68eb73835895499",
+          example: "彼は友人の失敗を揶揄するコメントを投稿してしまった。",
           options: [
             { text: "からかうように言う", correct: true },
             { text: "やさしく助言する", correct: false },
@@ -374,12 +453,15 @@
       const quizScreen = document.getElementById("quiz-screen");
       const resultScreen = document.getElementById("result-screen");
       const startButton = document.getElementById("start-button");
+      const resetButton = document.getElementById("reset-button");
       const restartButton = document.getElementById("restart-button");
       const termEl = document.getElementById("term");
       const choicesEl = document.getElementById("choices");
       const statsTodayEl = document.getElementById("stat-today");
       const statsCorrectEl = document.getElementById("stat-correct");
       const statsStreakEl = document.getElementById("stat-streak");
+      const statsScoreEl = document.getElementById("stat-score");
+      const statsComboEl = document.getElementById("stat-combo");
       const feedbackResultEl = document.getElementById("feedback-result");
       const feedbackExplanationEl = document.getElementById("feedback-explanation");
       const feedbackSourceEl = document.getElementById("feedback-source");
@@ -387,6 +469,7 @@
       const dueListEl = document.getElementById("due-list");
       const resultSummaryEl = document.getElementById("result-summary");
       const resultListEl = document.getElementById("result-list");
+      const resultNoteEl = document.getElementById("result-note");
 
       let state = loadState();
       let mode = "idle";
@@ -396,22 +479,26 @@
       let sessionQueue = [];
       let sessionIndex = 0;
       let sessionStats = createEmptySessionStats();
+      let audioContext = null;
+      let autoAdvanceTimer = null;
+
+      state.score = Number.isFinite(state.score) ? state.score : 0;
+      state.combo = Number.isFinite(state.combo) && state.combo > 0 ? state.combo : 1;
 
       initialize();
 
       function beginSession() {
+        clearAutoAdvance();
         sessionStats = createEmptySessionStats();
+        sessionStats.startScore = state.score;
+        resultNoteEl.textContent = "";
         sessionQueue = buildSessionQueue();
         sessionIndex = 0;
         hasAnswered = false;
         nextButton.disabled = true;
         nextButton.textContent = "次の問題";
         if (sessionQueue.length === 0) {
-          if (mode === "results") {
-            setScreen("start");
-          } else {
-            showResults(true);
-          }
+          showResults(true);
           return;
         }
         mode = "quiz";
@@ -443,20 +530,33 @@
 
       function buildSessionQueue() {
         const today = getTodayString();
+        const remaining = Math.max(DAILY_CAP - state.todayCount, 0);
+        if (remaining <= 0) {
+          return [];
+        }
         const dueItems = quizData.filter(item => {
           const progress = state.perWordProgress[item.id];
           return progress && progress.nextDue <= today;
         });
-        if (dueItems.length === 0) {
-          return [];
+        const sourcePool = dueItems.length > 0 ? dueItems : quizData;
+        const baseQueue = shuffle(sourcePool).slice(0, remaining);
+        const sessionItems = baseQueue.map(item => ({
+          ...item,
+          options: item.options.map(option => ({ ...option }))
+        }));
+        if (sessionItems.length > 0) {
+          const luckyIndex = Math.floor(Math.random() * sessionItems.length);
+          sessionItems[luckyIndex]._lucky = true;
         }
-        return shuffle(dueItems);
+        return sessionItems;
       }
 
       function createEmptySessionStats() {
         return {
           answered: 0,
           correct: 0,
+          startScore: 0,
+          luckyHits: 0,
           details: []
         };
       }
@@ -468,6 +568,7 @@
         updateFooter();
         startButton.addEventListener("click", beginSession);
         restartButton.addEventListener("click", beginSession);
+        resetButton.addEventListener("click", handleReset);
         nextButton.addEventListener("click", handleNextQuestion);
         document.addEventListener("keydown", handleKeydown);
         setScreen("start");
@@ -522,6 +623,8 @@
           lastPlayedDate: null,
           totalCorrect: 0,
           todayCount: 0,
+          score: 0,
+          combo: 1,
           perWordProgress: progress
         };
       }
@@ -552,11 +655,13 @@
         const today = getTodayString();
         if (state.lastPlayedDate && state.lastPlayedDate !== today) {
           state.todayCount = 0;
+          state.combo = 1;
           saveState();
         }
       }
 
       function selectAndRenderQuestion() {
+        clearAutoAdvance();
         currentQuestion = sessionQueue[sessionIndex];
         hasAnswered = false;
         renderQuestion();
@@ -565,6 +670,13 @@
       function renderQuestion() {
         mode = "quiz";
         termEl.textContent = currentQuestion.term;
+        const isLucky = Boolean(currentQuestion._lucky);
+        termEl.classList.toggle("lucky", isLucky);
+        if (isLucky) {
+          termEl.setAttribute("aria-label", `${currentQuestion.term}（ラッキー語）`);
+        } else {
+          termEl.removeAttribute("aria-label");
+        }
         const options = currentQuestion.options.map(option => ({ ...option }));
         shuffledOptions = shuffle(options);
         choicesEl.innerHTML = "";
@@ -596,24 +708,32 @@
         hasAnswered = true;
         const selectedOption = shuffledOptions[index];
         const isCorrect = Boolean(selectedOption && selectedOption.correct);
+        const isLucky = Boolean(currentQuestion._lucky);
         revealChoices(selectedOption);
-        const record = updateProgress(isCorrect);
+        const record = updateProgress(isCorrect, isLucky);
         sessionStats.answered += 1;
         if (isCorrect) {
           sessionStats.correct += 1;
+          if (isLucky) {
+            sessionStats.luckyHits += 1;
+          }
         }
         sessionStats.details.push({
           term: currentQuestion.term,
           correct: isCorrect,
           explanation: currentQuestion.explanation,
+          example: currentQuestion.example,
+          lucky: isLucky,
           stage: record.stage,
           nextDue: record.nextDue
         });
+        playFeedbackTone(isCorrect);
         showFeedback(isCorrect);
         updateStatsUI();
         updateFooter();
         nextButton.disabled = false;
         nextButton.focus();
+        scheduleAutoAdvance();
       }
 
       function revealChoices(selectedOption) {
@@ -623,21 +743,30 @@
           const isCorrect = option.correct;
           button.disabled = true;
           if (isCorrect) {
-            button.classList.add("correct");
+            button.classList.add("correct", "choice-hit");
           }
           if (!isCorrect && selectedOption === option) {
-            button.classList.add("wrong");
+            button.classList.add("wrong", "choice-miss");
           }
         });
       }
 
-      function updateProgress(isCorrect) {
+      function updateProgress(isCorrect, isLucky) {
         const today = getTodayString();
+        if (state.lastPlayedDate && state.lastPlayedDate !== today) {
+          state.combo = 1;
+        }
         const record = state.perWordProgress[currentQuestion.id];
         if (isCorrect) {
+          state.score += 100 * state.combo;
+          if (isLucky) {
+            state.score += LUCKY_BONUS;
+          }
+          state.combo = Math.min(state.combo + 1, MAX_COMBO);
           record.stage = Math.min(record.stage + 1, intervals.length - 1);
           record.correct += 1;
         } else {
+          state.combo = 1;
           record.stage = Math.max(record.stage - 1, 0);
           record.wrong += 1;
         }
@@ -669,27 +798,19 @@
       function showFeedback(isCorrect) {
         feedbackResultEl.textContent = isCorrect ? "正解！" : "不正解";
         feedbackExplanationEl.textContent = currentQuestion.explanation;
-        feedbackSourceEl.textContent = "";
-        if (currentQuestion.source_url) {
-          const link = document.createElement("a");
-          link.href = currentQuestion.source_url;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.textContent = "出典はこちら";
-          feedbackSourceEl.appendChild(document.createTextNode("出典: "));
-          feedbackSourceEl.appendChild(link);
-        } else {
-          feedbackSourceEl.textContent = "出典準備中";
-        }
+        feedbackSourceEl.textContent = currentQuestion.example
+          ? `用例：${currentQuestion.example}`
+          : "用例：—";
       }
 
       function resetFeedback() {
         feedbackResultEl.textContent = "答えを選択してください。";
         feedbackExplanationEl.textContent = "";
-        feedbackSourceEl.textContent = "";
+        feedbackSourceEl.textContent = "用例：—";
       }
 
       function handleNextQuestion() {
+        clearAutoAdvance();
         if (mode !== "quiz") {
           return;
         }
@@ -702,25 +823,39 @@
       }
 
       function showResults(noQuestions = false) {
+        clearAutoAdvance();
         setScreen("result");
         resultListEl.innerHTML = "";
         const hasResults = !(noQuestions || sessionStats.answered === 0);
         restartButton.textContent = hasResults ? "もう一度挑戦する" : "開始画面に戻る";
         if (!hasResults) {
-          resultSummaryEl.textContent = "本日は復習する語はありません。";
+          resultSummaryEl.textContent = state.todayCount >= DAILY_CAP
+            ? "今日はここまで。続きは明日！"
+            : "本日は復習する語はありません。";
+          resultNoteEl.textContent = "";
           return;
         }
         const total = sessionStats.answered;
         const accuracy = Math.round((sessionStats.correct / total) * 100);
-        resultSummaryEl.textContent = `正解 ${sessionStats.correct} / ${total} 問（正答率 ${accuracy}%）`;
+        const earnedScore = Math.max(state.score - (sessionStats.startScore ?? state.score), 0);
+        resultSummaryEl.textContent = `正解 ${sessionStats.correct} / ${total} 問（正答率 ${accuracy}%） / 獲得スコア +${earnedScore}`;
+        resultNoteEl.textContent = state.todayCount >= DAILY_CAP
+          ? "今日はここまで。続きは明日！"
+          : sessionStats.luckyHits > 0
+            ? "ラッキー語を獲得！明日も挑戦しましょう。"
+            : "";
         sessionStats.details.forEach((detail, index) => {
           const item = document.createElement("div");
-          item.className = `result-item ${detail.correct ? "correct" : "wrong"}`;
+          const itemClasses = [`result-item`, detail.correct ? "correct" : "wrong"];
+          if (detail.lucky) {
+            itemClasses.push("lucky");
+          }
+          item.className = itemClasses.join(" ");
           item.style.animationDelay = `${index * 0.1}s`;
 
           const icon = document.createElement("span");
           icon.className = "result-icon";
-          icon.textContent = detail.correct ? "◯" : "×";
+          icon.textContent = detail.correct ? (detail.lucky ? "★" : "◯") : "×";
           icon.setAttribute("aria-hidden", "true");
 
           const body = document.createElement("div");
@@ -732,9 +867,16 @@
           const verdict = document.createElement("span");
           verdict.className = "result-meta";
           verdict.textContent = detail.correct ? "結果: 正解" : "結果: 不正解";
+          if (detail.lucky) {
+            verdict.textContent += "（ラッキー語）";
+          }
 
           const explanation = document.createElement("p");
           explanation.textContent = detail.explanation;
+
+          const example = document.createElement("span");
+          example.className = "result-meta";
+          example.textContent = detail.example ? `用例: ${detail.example}` : "用例: —";
 
           const meta = document.createElement("span");
           meta.className = "result-meta";
@@ -743,11 +885,85 @@
           body.appendChild(title);
           body.appendChild(verdict);
           body.appendChild(explanation);
+          body.appendChild(example);
           body.appendChild(meta);
           item.appendChild(icon);
           item.appendChild(body);
           resultListEl.appendChild(item);
         });
+      }
+
+      function handleReset() {
+        clearAutoAdvance();
+        const confirmed = window.confirm("学習記録をリセットしますか？");
+        if (!confirmed) {
+          return;
+        }
+        localStorage.removeItem(storageKey);
+        state = createDefaultState();
+        ensureProgressEntries();
+        sessionQueue = [];
+        sessionIndex = 0;
+        hasAnswered = false;
+        sessionStats = createEmptySessionStats();
+        mode = "idle";
+        termEl.textContent = "読み込み中...";
+        resetFeedback();
+        resultListEl.innerHTML = "";
+        resultSummaryEl.textContent = "";
+        resultNoteEl.textContent = "";
+        nextButton.disabled = true;
+        updateStatsUI();
+        updateFooter();
+        saveState();
+        setScreen("start");
+      }
+
+      function scheduleAutoAdvance() {
+        clearAutoAdvance();
+        autoAdvanceTimer = window.setTimeout(() => {
+          autoAdvanceTimer = null;
+          if (!nextButton.disabled) {
+            nextButton.click();
+          }
+        }, AUTO_NEXT_DELAY);
+      }
+
+      function clearAutoAdvance() {
+        if (autoAdvanceTimer) {
+          window.clearTimeout(autoAdvanceTimer);
+          autoAdvanceTimer = null;
+        }
+      }
+
+      function playFeedbackTone(success) {
+        try {
+          if (!audioContext) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) {
+              return;
+            }
+            audioContext = new AudioContextClass();
+          }
+          const ctx = audioContext;
+          const now = ctx.currentTime;
+          if (ctx.state === "suspended") {
+            ctx.resume().catch(() => {});
+          }
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = success ? 880 : 220;
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } catch (error) {
+          // 音声が再生できない環境では無視
+        }
       }
 
       function handleKeydown(event) {
@@ -783,12 +999,25 @@
         statsTodayEl.textContent = `今日の解答数: ${state.todayCount}`;
         statsCorrectEl.textContent = `累計正答: ${state.totalCorrect}`;
         statsStreakEl.textContent = `連続日数: ${state.streak}`;
+        if (statsScoreEl) {
+          statsScoreEl.textContent = `スコア: ${state.score}`;
+        }
+        if (statsComboEl) {
+          statsComboEl.textContent = `コンボ: x${state.combo}`;
+        }
       }
 
       function updateFooter() {
         const today = getTodayString();
-        const dueItems = quizData.filter(item => state.perWordProgress[item.id].nextDue <= today);
         dueListEl.innerHTML = "";
+        if (state.todayCount >= DAILY_CAP) {
+          const tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = "続きは明日！";
+          dueListEl.appendChild(tag);
+          return;
+        }
+        const dueItems = quizData.filter(item => state.perWordProgress[item.id].nextDue <= today);
         if (dueItems.length === 0) {
           const doneTag = document.createElement("span");
           doneTag.className = "tag";
