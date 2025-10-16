@@ -1,10 +1,11 @@
-<!-- 単一ファイルの日本語語彙クイズ。localStorage保存と段階的復習、キーボード操作を備えた最小構成です。 -->
+<!-- ゴイキャン(goicam)の単一ファイル語彙クイズ。localStorage保存と段階的復習、キーボード操作を備えた最小構成です。 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>日本語語彙クイズ</title>
+  <title>ゴイキャン | goicam 語彙クイズ</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='24' fill='%23ffffff'/%3E%3Cpath d='M24 30h32c8.8 0 16 7.2 16 16v48c-8-6-18.5-9-32-9s-24 3-32 9V38c0-4.4 3.6-8 8-8z' fill='%2309c5c1'/%3E%3Cpath d='M96 30H64c-8.84 0-16 7.16-16 16v48c8-6 18.5-9 32-9s24 3 32 9V38c0-4.42-3.58-8-8-8z' fill='%2300b0a7'/%3E%3Cpath d='M60 24c11.05 0 20 8.95 20 20 0 3.7-1.04 7.16-2.84 10.1l6.6 6.62c1.9 1.9.56 5.18-2.13 5.18H73c-11.05 0-20-8.95-20-20s8.95-20 20-20z' fill='%23ff9f1c'/%3E%3Ccircle cx='60' cy='44' r='16' fill='%23ffb347'/%3E%3C/svg%3E">
   <style>
     :root {
       color-scheme: light;
@@ -35,9 +36,33 @@
       max-width: 640px;
       margin: 0 auto;
     }
-    h1 {
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+      flex-shrink: 0;
+    }
+    .brand-text h1 {
       margin: 0;
       font-size: 1.4rem;
+      line-height: 1.1;
+    }
+    .brand-sub {
+      margin: 4px 0 0;
+      font-size: 0.9rem;
+      color: #52606d;
     }
     .stats {
       margin-top: 8px;
@@ -213,7 +238,16 @@
       }
     }
     @media (min-width: 600px) {
-      h1 {
+      header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .stats {
+        margin-top: 0;
+        justify-content: flex-end;
+      }
+      .brand-text h1 {
         font-size: 1.6rem;
       }
       .term {
@@ -227,7 +261,13 @@
 </head>
 <body>
   <header>
-    <h1>日本語語彙クイズ</h1>
+    <div class="brand">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='24' fill='%23ffffff'/%3E%3Cpath d='M24 30h32c8.8 0 16 7.2 16 16v48c-8-6-18.5-9-32-9s-24 3-32 9V38c0-4.4 3.6-8 8-8z' fill='%2309c5c1'/%3E%3Cpath d='M96 30H64c-8.84 0-16 7.16-16 16v48c8-6 18.5-9 32-9s24 3 32 9V38c0-4.42-3.58-8-8-8z' fill='%2300b0a7'/%3E%3Cpath d='M60 24c11.05 0 20 8.95 20 20 0 3.7-1.04 7.16-2.84 10.1l6.6 6.62c1.9 1.9.56 5.18-2.13 5.18H73c-11.05 0-20-8.95-20-20s8.95-20 20-20z' fill='%23ff9f1c'/%3E%3Ccircle cx='60' cy='44' r='16' fill='%23ffb347'/%3E%3C/svg%3E" alt="goicam ロゴ" class="brand-logo">
+      <div class="brand-text">
+        <h1>ゴイキャン</h1>
+        <p class="brand-sub">goicam 語彙クイズ</p>
+      </div>
+    </div>
     <div class="stats" aria-live="polite">
       <span id="stat-today">今日の解答数: 0</span>
       <span id="stat-correct">累計正答: 0</span>
@@ -236,23 +276,23 @@
   </header>
   <main>
     <section id="start-screen" class="quiz-card screen active" aria-live="polite">
-      <h2>準備はできましたか？</h2>
+      <h2>ゴイキャンへようこそ</h2>
       <p>全5問の語彙クイズです。1〜4キーで回答、Enterで次へ進めます。</p>
-      <p>開始すると今日の復習対象が1巡したら結果が表示されます。対象がなければ結果画面でお知らせします。</p>
-      <button type="button" id="start-button" class="next-button start-button">クイズを開始する</button>
+      <p>今日の復習対象が1巡すると結果画面が開きます。対象がなければ結果画面でお知らせします。</p>
+      <button type="button" id="start-button" class="next-button start-button">ゴイキャンを開始する</button>
     </section>
     <section id="quiz-screen" class="quiz-card screen" aria-labelledby="term">
       <div class="term" id="term">読み込み中...</div>
       <div class="choices" id="choices"></div>
       <div class="feedback" aria-live="polite">
-        <p class="result" id="feedback-result">開始ボタンを押してください。</p>
+        <p class="result" id="feedback-result">ゴイキャンを開始してください。</p>
         <p class="explanation" id="feedback-explanation"></p>
         <p class="source" id="feedback-source"></p>
       </div>
       <button type="button" id="next-button" class="next-button" disabled>次の問題</button>
     </section>
     <section id="result-screen" class="quiz-card screen" aria-live="polite">
-      <h2>お疲れさまでした！</h2>
+      <h2>ゴイキャンお疲れさまでした！</h2>
       <p id="result-summary" class="result-summary"></p>
       <div id="result-list" class="result-list"></div>
       <button type="button" id="restart-button" class="next-button">もう一度挑戦する</button>
@@ -264,7 +304,8 @@
   </footer>
   <script>
     (function () {
-      const storageKey = "jpVocabQuizState";
+      const storageKey = "goicamState";
+      const legacyKeys = ["jpVocabQuizState"];
       const intervals = [0, 1, 2, 4, 7, 14, 30];
       const quizData = [
         {
@@ -434,12 +475,30 @@
 
       function loadState() {
         try {
-          const stored = localStorage.getItem(storageKey);
+          const defaults = createDefaultState();
+          let stored = localStorage.getItem(storageKey);
+          let migratedFrom = null;
           if (!stored) {
-            return createDefaultState();
+            for (const key of legacyKeys) {
+              const legacyValue = localStorage.getItem(key);
+              if (legacyValue) {
+                stored = legacyValue;
+                migratedFrom = key;
+                break;
+              }
+            }
+            if (stored) {
+              localStorage.setItem(storageKey, stored);
+              if (migratedFrom) {
+                localStorage.removeItem(migratedFrom);
+              }
+            }
+          }
+          if (!stored) {
+            return defaults;
           }
           const parsed = JSON.parse(stored);
-          return Object.assign(createDefaultState(), parsed);
+          return Object.assign(defaults, parsed);
         } catch (error) {
           console.warn("状態の読み込みに失敗しました。初期化します。", error);
           return createDefaultState();
