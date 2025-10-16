@@ -1,0 +1,803 @@
+<!-- 単一ファイルの日本語語彙クイズ。localStorage保存と段階的復習、キーボード操作を備えた最小構成です。 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日本語語彙クイズ</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f4f6;
+      color: #1f2933;
+      line-height: 1.5;
+    }
+    header,
+    footer {
+      background: #ffffff;
+      padding: 16px;
+      border-bottom: 1px solid #d9dce1;
+    }
+    footer {
+      border-top: 1px solid #d9dce1;
+      border-bottom: none;
+    }
+    main {
+      padding: 16px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.4rem;
+    }
+    .stats {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.95rem;
+    }
+    .quiz-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    }
+    .screen {
+      display: none;
+    }
+    .screen.active {
+      display: block;
+    }
+    .term {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .choices {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    button.choice {
+      width: 100%;
+      border: 2px solid transparent;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: #e5ecf6;
+      color: inherit;
+      font-size: 1rem;
+      text-align: left;
+      transition: background 0.2s, transform 0.1s;
+      cursor: pointer;
+    }
+    button.choice:hover:not(:disabled) {
+      background: #d7e3f4;
+    }
+    button.choice:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+    button.choice:focus-visible {
+      outline: 3px solid #2563eb;
+      outline-offset: 2px;
+    }
+    button.choice.correct {
+      background: #def7ec;
+      border-color: #0c9a66;
+    }
+    button.choice.wrong {
+      background: #fde8e8;
+      border-color: #c81e1e;
+    }
+    .feedback {
+      min-height: 72px;
+      padding: 12px;
+      background: #f0f4f8;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+    .feedback p {
+      margin: 4px 0;
+      font-size: 0.95rem;
+    }
+    .feedback .result {
+      font-weight: 600;
+    }
+    .next-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      background: #2563eb;
+      color: #ffffff;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .next-button:disabled {
+      background: #9aa5b1;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .next-button:focus-visible {
+      outline: 3px solid #1e40af;
+      outline-offset: 2px;
+    }
+    .start-button {
+      margin-top: 12px;
+      width: 100%;
+    }
+    footer p {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+    .due-list {
+      margin-top: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+    .tag {
+      background: #e1effe;
+      color: #1d4ed8;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .result-summary {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease-out forwards;
+    }
+    .result-list {
+      display: grid;
+      gap: 12px;
+    }
+    .result-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #f0f4f8;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.5s ease-out forwards;
+    }
+    .result-item.correct {
+      border-left: 4px solid #0c9a66;
+    }
+    .result-item.wrong {
+      border-left: 4px solid #c81e1e;
+    }
+    .result-item strong {
+      display: block;
+      font-size: 1rem;
+    }
+    .result-icon {
+      font-size: 1.4rem;
+      line-height: 1.2;
+      width: 1.4rem;
+    }
+    .result-body {
+      flex: 1;
+    }
+    .result-meta {
+      font-size: 0.85rem;
+      color: #52606d;
+      margin-top: 4px;
+      display: block;
+    }
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    @media (min-width: 600px) {
+      h1 {
+        font-size: 1.6rem;
+      }
+      .term {
+        font-size: 1.4rem;
+      }
+      .choices {
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>日本語語彙クイズ</h1>
+    <div class="stats" aria-live="polite">
+      <span id="stat-today">今日の解答数: 0</span>
+      <span id="stat-correct">累計正答: 0</span>
+      <span id="stat-streak">連続日数: 0</span>
+    </div>
+  </header>
+  <main>
+    <section id="start-screen" class="quiz-card screen active" aria-live="polite">
+      <h2>準備はできましたか？</h2>
+      <p>全5問の語彙クイズです。1〜4キーで回答、Enterで次へ進めます。</p>
+      <p>開始すると今日の復習対象が1巡したら結果が表示されます。対象がなければ結果画面でお知らせします。</p>
+      <button type="button" id="start-button" class="next-button start-button">クイズを開始する</button>
+    </section>
+    <section id="quiz-screen" class="quiz-card screen" aria-labelledby="term">
+      <div class="term" id="term">読み込み中...</div>
+      <div class="choices" id="choices"></div>
+      <div class="feedback" aria-live="polite">
+        <p class="result" id="feedback-result">開始ボタンを押してください。</p>
+        <p class="explanation" id="feedback-explanation"></p>
+        <p class="source" id="feedback-source"></p>
+      </div>
+      <button type="button" id="next-button" class="next-button" disabled>次の問題</button>
+    </section>
+    <section id="result-screen" class="quiz-card screen" aria-live="polite">
+      <h2>お疲れさまでした！</h2>
+      <p id="result-summary" class="result-summary"></p>
+      <div id="result-list" class="result-list"></div>
+      <button type="button" id="restart-button" class="next-button">もう一度挑戦する</button>
+    </section>
+  </main>
+  <footer>
+    <p>今日のおすすめ</p>
+    <div class="due-list" id="due-list"></div>
+  </footer>
+  <script>
+    (function () {
+      const storageKey = "jpVocabQuizState";
+      const intervals = [0, 1, 2, 4, 7, 14, 30];
+      const quizData = [
+        {
+          id: "q1",
+          term: "是非を問う",
+          explanation: "「是か非か＝正しいか正しくないかを判断する意。」",
+          source_url: "https://www.sankei.com/article/20250927-OAJ4PBIVM5IUREXXMM3W24IXV4/",
+          options: [
+            { text: "物事の正しいか正しくないかを判断する", correct: true },
+            { text: "絶対にやり遂げようと強く求める", correct: false },
+            { text: "全力を尽くして取り組む", correct: false },
+            { text: "相手に熱心に依頼する", correct: false }
+          ]
+        },
+        {
+          id: "q2",
+          term: "監督",
+          explanation: "指導・取り締まりの立場から見守ること。",
+          source_url: "https://www.sankei.com/article/20250927-OAJ4PBIVM5IUREXXMM3W24IXV4/",
+          options: [
+            { text: "指導・取り締まりをして見守ること", correct: true },
+            { text: "実際に現場で作業すること", correct: false },
+            { text: "上位者に相談して判断を仰ぐこと", correct: false },
+            { text: "規則を作り制度化すること", correct: false }
+          ]
+        },
+        {
+          id: "q3",
+          term: "ステルスマーケティング",
+          explanation: "広告表示をせず宣伝する手法。略称「ステマ」。",
+          source_url: "https://www.nikkei.com/article/DGXZQOUA14ASN0U5A011C2000000/",
+          options: [
+            { text: "広告と気づかれない形で商品を宣伝すること", correct: true },
+            { text: "新しい販売戦略を開発すること", correct: false },
+            { text: "消費者の購買傾向を分析すること", correct: false },
+            { text: "自然に売れる仕組みを作ること", correct: false }
+          ]
+        },
+        {
+          id: "q4",
+          term: "バツが悪い",
+          explanation: "その場に居づらい感じの「気まずさ」。",
+          source_url: "",
+          options: [
+            { text: "気まずく、居心地が悪い", correct: true },
+            { text: "体調が悪く、調子が出ない", correct: false },
+            { text: "失敗して大きな損害を受ける", correct: false },
+            { text: "判断を誤り、結果が不利になる", correct: false }
+          ]
+        },
+        {
+          id: "q5",
+          term: "揶揄する",
+          explanation: "からかい・なぶりを含む言い方。",
+          source_url: "https://newsdig.tbs.co.jp/articles/-/2221356?display=1",
+          options: [
+            { text: "からかうように言う", correct: true },
+            { text: "やさしく助言する", correct: false },
+            { text: "遠回しに皮肉を述べる", correct: false },
+            { text: "さりげなく示唆する", correct: false }
+          ]
+        }
+      ];
+
+      const startScreen = document.getElementById("start-screen");
+      const quizScreen = document.getElementById("quiz-screen");
+      const resultScreen = document.getElementById("result-screen");
+      const startButton = document.getElementById("start-button");
+      const restartButton = document.getElementById("restart-button");
+      const termEl = document.getElementById("term");
+      const choicesEl = document.getElementById("choices");
+      const statsTodayEl = document.getElementById("stat-today");
+      const statsCorrectEl = document.getElementById("stat-correct");
+      const statsStreakEl = document.getElementById("stat-streak");
+      const feedbackResultEl = document.getElementById("feedback-result");
+      const feedbackExplanationEl = document.getElementById("feedback-explanation");
+      const feedbackSourceEl = document.getElementById("feedback-source");
+      const nextButton = document.getElementById("next-button");
+      const dueListEl = document.getElementById("due-list");
+      const resultSummaryEl = document.getElementById("result-summary");
+      const resultListEl = document.getElementById("result-list");
+
+      let state = loadState();
+      let mode = "idle";
+      let currentQuestion = null;
+      let shuffledOptions = [];
+      let hasAnswered = false;
+      let sessionQueue = [];
+      let sessionIndex = 0;
+      let sessionStats = createEmptySessionStats();
+
+      initialize();
+
+      function beginSession() {
+        sessionStats = createEmptySessionStats();
+        sessionQueue = buildSessionQueue();
+        sessionIndex = 0;
+        hasAnswered = false;
+        nextButton.disabled = true;
+        nextButton.textContent = "次の問題";
+        if (sessionQueue.length === 0) {
+          if (mode === "results") {
+            setScreen("start");
+          } else {
+            showResults(true);
+          }
+          return;
+        }
+        mode = "quiz";
+        setScreen("quiz");
+        selectAndRenderQuestion();
+      }
+
+      function setScreen(target) {
+        startScreen.classList.toggle("active", target === "start");
+        quizScreen.classList.toggle("active", target === "quiz");
+        resultScreen.classList.toggle("active", target === "result");
+        if (target === "start") {
+          mode = "idle";
+          queueFocus(startButton);
+        } else if (target === "quiz") {
+          queueFocus(null);
+        } else if (target === "result") {
+          mode = "results";
+          queueFocus(restartButton);
+        }
+      }
+
+      function queueFocus(element) {
+        if (!element) {
+          return;
+        }
+        requestAnimationFrame(() => element.focus());
+      }
+
+      function buildSessionQueue() {
+        const today = getTodayString();
+        const dueItems = quizData.filter(item => {
+          const progress = state.perWordProgress[item.id];
+          return progress && progress.nextDue <= today;
+        });
+        if (dueItems.length === 0) {
+          return [];
+        }
+        return shuffle(dueItems);
+      }
+
+      function createEmptySessionStats() {
+        return {
+          answered: 0,
+          correct: 0,
+          details: []
+        };
+      }
+
+      function initialize() {
+        ensureProgressEntries();
+        prepareForNewDay();
+        updateStatsUI();
+        updateFooter();
+        startButton.addEventListener("click", beginSession);
+        restartButton.addEventListener("click", beginSession);
+        nextButton.addEventListener("click", handleNextQuestion);
+        document.addEventListener("keydown", handleKeydown);
+        setScreen("start");
+      }
+
+      function loadState() {
+        try {
+          const stored = localStorage.getItem(storageKey);
+          if (!stored) {
+            return createDefaultState();
+          }
+          const parsed = JSON.parse(stored);
+          return Object.assign(createDefaultState(), parsed);
+        } catch (error) {
+          console.warn("状態の読み込みに失敗しました。初期化します。", error);
+          return createDefaultState();
+        }
+      }
+
+      function createDefaultState() {
+        const today = getTodayString();
+        const progress = {};
+        for (const item of quizData) {
+          progress[item.id] = {
+            id: item.id,
+            stage: 0,
+            nextDue: today,
+            correct: 0,
+            wrong: 0
+          };
+        }
+        return {
+          streak: 0,
+          lastPlayedDate: null,
+          totalCorrect: 0,
+          todayCount: 0,
+          perWordProgress: progress
+        };
+      }
+
+      function ensureProgressEntries() {
+        let updated = false;
+        const progress = state.perWordProgress || {};
+        const today = getTodayString();
+        for (const item of quizData) {
+          if (!progress[item.id]) {
+            progress[item.id] = {
+              id: item.id,
+              stage: 0,
+              nextDue: today,
+              correct: 0,
+              wrong: 0
+            };
+            updated = true;
+          }
+        }
+        state.perWordProgress = progress;
+        if (updated) {
+          saveState();
+        }
+      }
+
+      function prepareForNewDay() {
+        const today = getTodayString();
+        if (state.lastPlayedDate && state.lastPlayedDate !== today) {
+          state.todayCount = 0;
+          saveState();
+        }
+      }
+
+      function selectAndRenderQuestion() {
+        currentQuestion = sessionQueue[sessionIndex];
+        hasAnswered = false;
+        renderQuestion();
+      }
+
+      function renderQuestion() {
+        mode = "quiz";
+        termEl.textContent = currentQuestion.term;
+        const options = currentQuestion.options.map(option => ({ ...option }));
+        shuffledOptions = shuffle(options);
+        choicesEl.innerHTML = "";
+        shuffledOptions.forEach((option, index) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "choice";
+          button.textContent = `${index + 1}. ${option.text}`;
+          button.dataset.index = String(index);
+          button.addEventListener("click", () => handleAnswer(index));
+          choicesEl.appendChild(button);
+        });
+        requestAnimationFrame(() => {
+          const firstButton = choicesEl.querySelector("button");
+          if (firstButton) {
+            firstButton.focus();
+          }
+        });
+        const isLast = sessionIndex === sessionQueue.length - 1;
+        nextButton.textContent = isLast ? "結果を見る" : "次の問題";
+        resetFeedback();
+        nextButton.disabled = true;
+      }
+
+      function handleAnswer(index) {
+        if (hasAnswered) {
+          return;
+        }
+        hasAnswered = true;
+        const selectedOption = shuffledOptions[index];
+        const isCorrect = Boolean(selectedOption && selectedOption.correct);
+        revealChoices(selectedOption);
+        const record = updateProgress(isCorrect);
+        sessionStats.answered += 1;
+        if (isCorrect) {
+          sessionStats.correct += 1;
+        }
+        sessionStats.details.push({
+          term: currentQuestion.term,
+          correct: isCorrect,
+          explanation: currentQuestion.explanation,
+          stage: record.stage,
+          nextDue: record.nextDue
+        });
+        showFeedback(isCorrect);
+        updateStatsUI();
+        updateFooter();
+        nextButton.disabled = false;
+        nextButton.focus();
+      }
+
+      function revealChoices(selectedOption) {
+        const buttons = Array.from(choicesEl.querySelectorAll("button.choice"));
+        buttons.forEach((button, idx) => {
+          const option = shuffledOptions[idx];
+          const isCorrect = option.correct;
+          button.disabled = true;
+          if (isCorrect) {
+            button.classList.add("correct");
+          }
+          if (!isCorrect && selectedOption === option) {
+            button.classList.add("wrong");
+          }
+        });
+      }
+
+      function updateProgress(isCorrect) {
+        const today = getTodayString();
+        const record = state.perWordProgress[currentQuestion.id];
+        if (isCorrect) {
+          record.stage = Math.min(record.stage + 1, intervals.length - 1);
+          record.correct += 1;
+        } else {
+          record.stage = Math.max(record.stage - 1, 0);
+          record.wrong += 1;
+        }
+        record.nextDue = calculateNextDue(record.stage, today);
+        updateDailyStats(isCorrect);
+        saveState();
+        return record;
+      }
+
+      function updateDailyStats(isCorrect) {
+        const today = getTodayString();
+        const last = state.lastPlayedDate;
+        if (last !== today) {
+          const diff = last ? daysBetween(last, today) : null;
+          if (diff === 1) {
+            state.streak += 1;
+          } else {
+            state.streak = 1;
+          }
+          state.todayCount = 0;
+          state.lastPlayedDate = today;
+        }
+        state.todayCount += 1;
+        if (isCorrect) {
+          state.totalCorrect += 1;
+        }
+      }
+
+      function showFeedback(isCorrect) {
+        feedbackResultEl.textContent = isCorrect ? "正解！" : "不正解";
+        feedbackExplanationEl.textContent = currentQuestion.explanation;
+        feedbackSourceEl.textContent = "";
+        if (currentQuestion.source_url) {
+          const link = document.createElement("a");
+          link.href = currentQuestion.source_url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "出典はこちら";
+          feedbackSourceEl.appendChild(document.createTextNode("出典: "));
+          feedbackSourceEl.appendChild(link);
+        } else {
+          feedbackSourceEl.textContent = "出典準備中";
+        }
+      }
+
+      function resetFeedback() {
+        feedbackResultEl.textContent = "答えを選択してください。";
+        feedbackExplanationEl.textContent = "";
+        feedbackSourceEl.textContent = "";
+      }
+
+      function handleNextQuestion() {
+        if (mode !== "quiz") {
+          return;
+        }
+        sessionIndex += 1;
+        if (sessionIndex >= sessionQueue.length) {
+          showResults();
+          return;
+        }
+        selectAndRenderQuestion();
+      }
+
+      function showResults(noQuestions = false) {
+        setScreen("result");
+        resultListEl.innerHTML = "";
+        const hasResults = !(noQuestions || sessionStats.answered === 0);
+        restartButton.textContent = hasResults ? "もう一度挑戦する" : "開始画面に戻る";
+        if (!hasResults) {
+          resultSummaryEl.textContent = "本日は復習する語はありません。";
+          return;
+        }
+        const total = sessionStats.answered;
+        const accuracy = Math.round((sessionStats.correct / total) * 100);
+        resultSummaryEl.textContent = `正解 ${sessionStats.correct} / ${total} 問（正答率 ${accuracy}%）`;
+        sessionStats.details.forEach((detail, index) => {
+          const item = document.createElement("div");
+          item.className = `result-item ${detail.correct ? "correct" : "wrong"}`;
+          item.style.animationDelay = `${index * 0.1}s`;
+
+          const icon = document.createElement("span");
+          icon.className = "result-icon";
+          icon.textContent = detail.correct ? "◯" : "×";
+          icon.setAttribute("aria-hidden", "true");
+
+          const body = document.createElement("div");
+          body.className = "result-body";
+
+          const title = document.createElement("strong");
+          title.textContent = detail.term;
+
+          const verdict = document.createElement("span");
+          verdict.className = "result-meta";
+          verdict.textContent = detail.correct ? "結果: 正解" : "結果: 不正解";
+
+          const explanation = document.createElement("p");
+          explanation.textContent = detail.explanation;
+
+          const meta = document.createElement("span");
+          meta.className = "result-meta";
+          meta.textContent = `次回復習: ${detail.nextDue} / 現在ステージ: ${detail.stage}`;
+
+          body.appendChild(title);
+          body.appendChild(verdict);
+          body.appendChild(explanation);
+          body.appendChild(meta);
+          item.appendChild(icon);
+          item.appendChild(body);
+          resultListEl.appendChild(item);
+        });
+      }
+
+      function handleKeydown(event) {
+        if (event.repeat) {
+          return;
+        }
+        const key = event.key;
+        if (mode === "idle" && (key === "Enter" || key === " " || key === "Spacebar")) {
+          event.preventDefault();
+          beginSession();
+          return;
+        }
+        if (mode === "results" && key === "Enter") {
+          event.preventDefault();
+          beginSession();
+          return;
+        }
+        if (mode !== "quiz") {
+          return;
+        }
+        if (!hasAnswered && ["1", "2", "3", "4"].includes(key)) {
+          const index = Number(key) - 1;
+          const button = choicesEl.querySelector(`button[data-index="${index}"]`);
+          if (button) {
+            button.click();
+          }
+        } else if (hasAnswered && key === "Enter" && !nextButton.disabled) {
+          nextButton.click();
+        }
+      }
+
+      function updateStatsUI() {
+        statsTodayEl.textContent = `今日の解答数: ${state.todayCount}`;
+        statsCorrectEl.textContent = `累計正答: ${state.totalCorrect}`;
+        statsStreakEl.textContent = `連続日数: ${state.streak}`;
+      }
+
+      function updateFooter() {
+        const today = getTodayString();
+        const dueItems = quizData.filter(item => state.perWordProgress[item.id].nextDue <= today);
+        dueListEl.innerHTML = "";
+        if (dueItems.length === 0) {
+          const doneTag = document.createElement("span");
+          doneTag.className = "tag";
+          doneTag.textContent = "復習は完了です";
+          dueListEl.appendChild(doneTag);
+          return;
+        }
+        dueItems.forEach(item => {
+          const tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = item.term;
+          dueListEl.appendChild(tag);
+        });
+      }
+
+      function calculateNextDue(stage, todayString) {
+        const today = parseDate(todayString);
+        const offsetDays = intervals[Math.min(stage, intervals.length - 1)];
+        const nextDate = addDays(today, offsetDays);
+        return formatDate(nextDate);
+      }
+
+      function saveState() {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(state));
+        } catch (error) {
+          console.warn("状態の保存に失敗しました。", error);
+        }
+      }
+
+      function shuffle(array) {
+        const result = array.slice();
+        for (let i = result.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+      }
+
+      function getTodayString() {
+        return formatDate(new Date());
+      }
+
+      function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+
+      function parseDate(dateString) {
+        const [year, month, day] = dateString.split("-").map(Number);
+        return new Date(year, month - 1, day);
+      }
+
+      function addDays(date, days) {
+        const result = new Date(date);
+        result.setDate(result.getDate() + days);
+        return result;
+      }
+
+      function daysBetween(start, end) {
+        const startDate = parseDate(start);
+        const endDate = parseDate(end);
+        const msPerDay = 24 * 60 * 60 * 1000;
+        return Math.round((endDate - startDate) / msPerDay);
+      }
+    })();
+  </script>
+</body>
+</html>
