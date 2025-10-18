@@ -904,6 +904,7 @@
         feedbackEl.innerHTML = `
         <div class="feedback-title">⏰ タイムアップ！</div>
         <div class="example">${currentQuestion.example}</div>
+        <button class="next-btn" onclick="proceedToNext()">次へ →</button>
       `;
 
         // 回答履歴に記録
@@ -920,7 +921,7 @@
 
         autoNextTimeout = setTimeout(() => {
           showNextQuestion();
-        }, 700);
+        }, 3000);
       }
 
       // 問題を表示
@@ -1099,7 +1100,7 @@
         // 自動で次へ（0.7秒後）
         autoNextTimeout = setTimeout(() => {
           showNextQuestion();
-        }, 700);
+        }, 3000);
       }
 
       // フィードバックを表示
@@ -1122,6 +1123,7 @@
         <div class="feedback-title">${title}</div>
         ${comboText}
         <div class="example">${currentQuestion.example}</div>
+        <button class="next-btn" onclick="proceedToNext()">次へ →</button>
       `;
       }
 
@@ -1302,6 +1304,14 @@
         });
 
         reviewDetails.innerHTML = html;
+      }
+
+      // 次の問題へ進む（手動）
+      function proceedToNext() {
+        // 自動遷移のタイマーをキャンセル
+        clearTimeout(autoNextTimeout);
+        // 即座に次の問題へ
+        showNextQuestion();
       }
 
       // データをリセット
