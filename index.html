@@ -880,16 +880,16 @@
         timerBar.style.width = "100%";
 
         setTimeout(() => {
-          timerBar.style.transition = "width 10s linear";
+          timerBar.style.transition = "width 20s linear";
           timerBar.style.width = "0%";
         }, 50);
 
-        // 10秒後に自動で不正解扱い
+        // 20秒後に自動で不正解扱い
         timerInterval = setTimeout(() => {
           if (!answered) {
             autoIncorrect();
           }
-        }, 10000);
+        }, 20000);
       }
 
       // 自動不正解
