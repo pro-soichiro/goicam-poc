@@ -598,10 +598,9 @@
               最大コンボ: <strong id="result-max-combo">0</strong>連続
             </div>
           </div>
-          <div class="continue-tomorrow">
-            ⏰ 明日の新しいお題は 0:00 に更新！<br />
-            続きはまた明日お楽しみに✨
-          </div>
+          <button class="start-btn" onclick="restartQuiz()" style="margin: 1.5rem 0;">
+            🔄 もう一度挑戦
+          </button>
           <div class="review-toggle" onclick="toggleReview()">
             <span id="review-toggle-text">▼ 回答を確認する</span>
           </div>
@@ -1492,6 +1491,17 @@
         });
 
         newsList.innerHTML = html;
+      }
+
+      // もう一度クイズに挑戦
+      function restartQuiz() {
+        // スタート画面に戻る
+        showScreen("start");
+        // レビュー詳細を非表示にリセット
+        const reviewDetails = document.getElementById("review-details");
+        reviewDetails.classList.add("hidden");
+        const toggleText = document.getElementById("review-toggle-text");
+        toggleText.textContent = "▼ 回答を確認する";
       }
 
       // データをリセット
