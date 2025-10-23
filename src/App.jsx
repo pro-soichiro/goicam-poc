@@ -5,7 +5,7 @@ import './App.css';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/goicam-poc">
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/app" element={<QuizAppPage />} />
