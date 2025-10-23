@@ -250,5 +250,3 @@ export const DAILY_THEMES = [
   "💼 敬語マスター",
   "🔥 今週の必修語",
 ];
-
-export const INTERVALS = [1, 2, 4, 7, 14, 30];

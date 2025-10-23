@@ -1,20 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { StartScreen } from '../components/StartScreen';
 import { QuizScreen } from '../components/QuizScreen';
 import { ResultScreen } from '../components/ResultScreen';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useQuiz } from '../hooks/useQuiz';
 import { QUESTIONS } from '../data/questions';
-
-const getTodayString = () => {
-  return new Date().toISOString().split('T')[0];
-};
-
-const daysDiff = (dateStr1, dateStr2) => {
-  const d1 = new Date(dateStr1);
-  const d2 = new Date(dateStr2);
-  return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
-};
+import { getTodayString, daysDiff } from '../utils/dateUtils';
+import {
+  STREAK_BREAK_THRESHOLD_DAYS,
+  COMBO_THRESHOLD,
+  SCORE
+} from '../constants/quizConfig';
 
 export function QuizAppPage() {
   const [screen, setScreen] = useState('start');
@@ -53,42 +49,45 @@ export function QuizAppPage() {
     const today = getTodayString();
     const diff = daysDiff(progress.lastPlayedDate, today);
 
-    if (diff === 1) {
+    if (diff === STREAK_BREAK_THRESHOLD_DAYS) {
       setProgress({ ...progress, streak: progress.streak + 1, lastPlayedDate: today, todayCount: 0 });
-    } else if (diff > 1) {
+    } else if (diff > STREAK_BREAK_THRESHOLD_DAYS) {
       setProgress({ ...progress, streak: 1, lastPlayedDate: today, todayCount: 0 });
     }
   }, []);
 
-  const handleStart = (mode) => {
+  const handleStart = useCallback((mode) => {
     const session = quiz.startQuiz(mode);
     setScreen('quiz');
     setFeedback(null);
     setTimeout(() => {
       quiz.setupQuestion(session);
     }, 0);
-  };
+  }, [quiz]);
 
-  const handleAnswer = (selectedIndex) => {
+  const handleAnswer = useCallback((selectedIndex) => {
     if (quiz.answered) return;
 
     quiz.checkAnswer(selectedIndex, ({ isCorrect, newSession }) => {
-      let comboText = '';
-      if (isCorrect && newSession.combo >= 2) {
-        const bonus = (newSession.combo - 1) * 50;
-        comboText = `<div style="color: #f39c12; font-weight: bold; margin-top: 0.5rem;">🔥 ${newSession.combo}連続！ +${bonus}pt</div>`;
+      let combo = null;
+      let bonusPoints = null;
+
+      if (isCorrect && newSession.combo >= COMBO_THRESHOLD) {
+        combo = newSession.combo;
+        bonusPoints = (newSession.combo - 1) * SCORE.COMBO_BONUS_PER_STREAK;
       }
 
       setFeedback({
         isCorrect,
         isTimeout: false,
         selectedIndex,
-        comboText,
+        combo,
+        bonusPoints,
       });
     });
-  };
+  }, [quiz]);
 
-  const handleTimeout = () => {
+  const handleTimeout = useCallback(() => {
     if (quiz.answered) return;
 
     quiz.handleTimeout(() => {
@@ -96,12 +95,13 @@ export function QuizAppPage() {
         isCorrect: false,
         isTimeout: true,
         selectedIndex: null,
-        comboText: '',
+        combo: null,
+        bonusPoints: null,
       });
     });
-  };
+  }, [quiz]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     setFeedback(null);
 
     if (quiz.quizSession.currentIndex >= quiz.quizSession.questions.length) {
@@ -109,12 +109,12 @@ export function QuizAppPage() {
     } else {
       quiz.setupQuestion(quiz.quizSession);
     }
-  };
+  }, [quiz]);
 
-  const handleRestart = () => {
+  const handleRestart = useCallback(() => {
     setScreen('start');
     setFeedback(null);
-  };
+  }, []);
 
   const resetAllData = () => {
     if (
@@ -128,26 +128,25 @@ export function QuizAppPage() {
     }
   };
 
-  const getDueCount = () => {
+  const dueCount = useMemo(() => {
     const today = getTodayString();
     return QUESTIONS.filter((q) => {
       return progress.words[q.id] && progress.words[q.id].nextDue <= today;
     }).length;
-  };
+  }, [progress]);
 
-  const getFooterText = () => {
+  const footerText = useMemo(() => {
     if (screen === 'quiz' && quiz.quizSession) {
       const current = quiz.quizSession.currentIndex + 1;
       const total = quiz.quizSession.questions.length;
       return `📝 進捗: ${current} / ${total}問目`;
     }
 
-    const dueCount = getDueCount();
     if (dueCount > 0) {
       return `📝 今日の復習: ${dueCount}問`;
     }
     return '🎉 今日の復習は完了です！';
-  };
+  }, [screen, quiz.quizSession, dueCount]);
 
   return (
     <>
@@ -196,7 +195,7 @@ export function QuizAppPage() {
       </main>
 
       <footer>
-        {getFooterText()}
+        {footerText}
         <div style={{ marginTop: '1rem' }}>
           <button className="reset-btn" onClick={resetAllData}>
             データをリセット
