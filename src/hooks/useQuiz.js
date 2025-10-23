@@ -1,14 +1,37 @@
-import { useState, useEffect } from 'react';
-import { QUESTIONS, INTERVALS } from '../data/questions';
+import { useState } from 'react';
+import { QUESTIONS } from '../data/questions';
+import { getTodayString } from '../utils/dateUtils';
+import {
+  QUESTIONS_PER_QUIZ,
+  SCORE,
+  STAGES,
+  MODES,
+  INTERVALS,
+} from '../constants/quizConfig';
 
-const getTodayString = () => {
-  return new Date().toISOString().split('T')[0];
+// Helper function: Generate shuffled choices for a question
+const generateChoices = (question, mode) => {
+  if (mode === 'recall') {
+    return [
+      { text: question.term, isCorrect: true },
+      ...question.recallIncorrect.map((text) => ({ text, isCorrect: false })),
+    ].sort(() => Math.random() - 0.5);
+  } else {
+    return [
+      { text: question.correct, isCorrect: true },
+      ...question.incorrect.map((text) => ({ text, isCorrect: false })),
+    ].sort(() => Math.random() - 0.5);
+  }
 };
 
-const daysDiff = (dateStr1, dateStr2) => {
-  const d1 = new Date(dateStr1);
-  const d2 = new Date(dateStr2);
-  return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+// Helper function: Determine question mode for mixed mode
+const determineQuestionMode = (sessionMode, questionId, progress) => {
+  if (sessionMode !== 'mixed') {
+    return sessionMode;
+  }
+
+  const wordProgress = progress.words[questionId];
+  return wordProgress?.mode || MODES.MEANING;
 };
 
 export function useQuiz(progress, setProgress) {
@@ -18,10 +41,10 @@ export function useQuiz(progress, setProgress) {
   const [answered, setAnswered] = useState(false);
   const [answerHistory, setAnswerHistory] = useState([]);
 
-  const startQuiz = (mode = 'meaning') => {
+  const startQuiz = (mode = MODES.MEANING) => {
     const shuffledQuestions = [...QUESTIONS]
       .sort(() => Math.random() - 0.5)
-      .slice(0, 5);
+      .slice(0, QUESTIONS_PER_QUIZ);
 
     const session = {
       questions: shuffledQuestions,
@@ -47,30 +70,14 @@ export function useQuiz(progress, setProgress) {
     setCurrentQuestion(question);
     setAnswered(false);
 
-    // 問題モードの決定
-    let currentMode = session.mode;
-    if (session.mode === 'mixed' && progress.words[question.id]) {
-      const wordProgress = progress.words[question.id];
-      currentMode = wordProgress.mode || 'meaning';
-    }
+    // Determine question mode
+    const currentMode = determineQuestionMode(session.mode, question.id, progress);
 
-    // 選択肢の生成
-    let choices;
-    if (currentMode === 'recall') {
-      choices = [
-        { text: question.term, isCorrect: true },
-        ...question.recallIncorrect.map((text) => ({ text, isCorrect: false })),
-      ].sort(() => Math.random() - 0.5);
-    } else {
-      choices = [
-        { text: question.correct, isCorrect: true },
-        ...question.incorrect.map((text) => ({ text, isCorrect: false })),
-      ].sort(() => Math.random() - 0.5);
-    }
-
+    // Generate choices
+    const choices = generateChoices(question, currentMode);
     setCurrentChoices(choices);
 
-    // セッションにcurrentQuestionModeを保存
+    // Update session with current question mode
     const updatedSession = { ...session, currentQuestionMode: currentMode };
     setQuizSession(updatedSession);
 
@@ -104,8 +111,8 @@ export function useQuiz(progress, setProgress) {
       newSession.combo++;
       newSession.maxCombo = Math.max(newSession.maxCombo, newSession.combo);
 
-      const baseScore = 100;
-      const comboBonus = (newSession.combo - 1) * 50;
+      const baseScore = SCORE.BASE;
+      const comboBonus = (newSession.combo - 1) * SCORE.COMBO_BONUS_PER_STREAK;
       newSession.score += baseScore + comboBonus;
     } else {
       newSession.combo = 0;
@@ -157,11 +164,11 @@ export function useQuiz(progress, setProgress) {
 
     if (!wordProgress) {
       newProgress.words[question.id] = {
-        stage: 0,
+        stage: STAGES.MIN,
         nextDue: getTodayString(),
         correct: 0,
         wrong: 0,
-        mode: 'meaning',
+        mode: MODES.MEANING,
       };
     }
 
@@ -171,11 +178,11 @@ export function useQuiz(progress, setProgress) {
       wp.correct++;
       newProgress.totalCorrect++;
       newProgress.todayCount++;
-      wp.stage = Math.min(wp.stage + 1, INTERVALS.length - 1);
+      wp.stage = Math.min(wp.stage + 1, STAGES.MAX);
     } else {
       wp.wrong++;
       newProgress.todayCount++;
-      wp.stage = Math.max(wp.stage - 1, 0);
+      wp.stage = Math.max(wp.stage - 1, STAGES.MIN);
     }
 
     // 習熟度に応じてモードを自動切り替え（混合モードの場合のみ）
@@ -184,21 +191,21 @@ export function useQuiz(progress, setProgress) {
       const accuracy = totalAttempts > 0 ? wp.correct / totalAttempts : 0;
 
       if (!wp.mode) {
-        wp.mode = 'meaning';
+        wp.mode = MODES.MEANING;
       }
 
       // ステージ3以上 または 正答率80%以上で語句想起型に昇格
       if (
-        wp.mode === 'meaning' &&
+        wp.mode === MODES.MEANING &&
         (wp.stage >= 3 || accuracy >= 0.8) &&
         totalAttempts >= 3
       ) {
-        wp.mode = 'recall';
+        wp.mode = MODES.WORD;
       }
 
       // 語句想起型で正答率が60%未満に落ちたら意味理解型に戻す
-      if (wp.mode === 'recall' && accuracy < 0.6 && totalAttempts >= 3) {
-        wp.mode = 'meaning';
+      if (wp.mode === MODES.WORD && accuracy < 0.6 && totalAttempts >= 3) {
+        wp.mode = MODES.MEANING;
       }
     }
 

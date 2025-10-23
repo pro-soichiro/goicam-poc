@@ -129,10 +129,10 @@ export function QuizScreen({
           <div className="feedback-title">
             {feedback.isTimeout ? '⏰ タイムアップ！' : feedback.isCorrect ? '✅ 正解！' : '❌ 惜しい！'}
           </div>
-          {feedback.comboText && (
-            <div
-              dangerouslySetInnerHTML={{ __html: feedback.comboText }}
-            />
+          {feedback.combo && feedback.bonusPoints && (
+            <div style={{ color: '#f39c12', fontWeight: 'bold', marginTop: '0.5rem' }}>
+              🔥 {feedback.combo}連続！ +{feedback.bonusPoints}pt
+            </div>
           )}
           <div className="example">{question.example}</div>
           <button className="next-btn" onClick={onNext}>
