@@ -131,7 +131,7 @@ export function QuizAppPage() {
   const getDueCount = () => {
     const today = getTodayString();
     return QUESTIONS.filter((q) => {
-      return progress.words[q.id].nextDue <= today;
+      return progress.words[q.id] && progress.words[q.id].nextDue <= today;
     }).length;
   };
 
